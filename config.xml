@@ -1,0 +1,15 @@
+<?xml version='1.0' encoding='utf-8'?>
+<widget id="id.upitra.skorboard" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
+    <name>Skor Board Game</name>
+    <description>Papan skor digital untuk mencatat poin permainan fisik.</description>
+    <author email="support@upitra.ac.id" href="https://upitra.ac.id">Skor Board Game</author>
+    <content src="index.html" />
+    <access origin="*" />
+    <allow-intent href="http://*/*" />
+    <allow-intent href="https://*/*" />
+    <allow-intent href="tel:*" />
+    <allow-intent href="mailto:*" />
+    <preference name="AndroidXEnabled" value="true" />
+    <preference name="Orientation" value="default" />
+    <preference name="DisallowOverscroll" value="true" />
+</widget>

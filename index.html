@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- Content Security Policy untuk Cordova & Browser -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: gap: https://ssl.gstatic.com 'unsafe-eval' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:;">
+    <title>Skor Board Game</title>
+    
+    <!-- Tailwind CSS Play CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif;
+            background: radial-gradient(circle at top, #1e1b4b 0%, #0f172a 40%, #030712 100%);
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        /* Mode Simulasi HP yang Lebih Rapi & Proporsional */
+        .mobile-mode {
+            max-width: 410px !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+            background-color: #030712 !important;
+            padding: 1rem !important;
+            border-radius: 2.2rem !important;
+            border: 6px solid #334155 !important;
+            box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8) !important;
+        }
+        /* Penyesuaian Khusus saat Mode HP Aktif agar Elemen Tersusun Vertikal */
+        .mobile-mode header {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 1rem !important;
+        }
+        .mobile-mode header > div:last-child {
+            justify-content: space-between !important;
+            width: 100% !important;
+        }
+        .mobile-mode .timer-section > div,
+        .mobile-mode .round-section {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 1rem !important;
+        }
+        .mobile-mode .timer-section .flex,
+        .mobile-mode .round-section .flex {
+            justify-content: stretch !important;
+            width: 100% !important;
+        }
+        .mobile-mode .timer-section button,
+        .mobile-mode .round-section button {
+            flex: 1 !important;
+            justify-content: center !important;
+            text-align: center !important;
+        }
+        .mobile-mode .score-header {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 0.75rem !important;
+        }
+        .mobile-mode .score-header > div:last-child {
+            width: 100% !important;
+            display: grid !important;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        }
+        .mobile-mode .score-header button {
+            width: 100% !important;
+            justify-content: center !important;
+        }
+        /* Mode PC / Desktop Grid untuk Papan Skor */
+        .desktop-grid {
+            display: grid !important;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 1.25rem !important;
+        }
+    </style>
+</head>
+<body class="text-slate-100 min-h-screen flex flex-col items-center justify-start p-4 sm:p-8">
+
+    <!-- Container Utama -->
+    <main id="main-container" class="w-full max-w-5xl transition-all duration-300 space-y-6">
+
+        <!-- Header -->
+        <header class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900/80 backdrop-blur-xl border border-slate-800/90 rounded-2xl p-5 shadow-2xl">
+            <div class="flex items-center gap-3.5">
+                <div class="w-12 h-12 rounded-2xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-2xl shadow-inner shrink-0">
+                    🎲
+                </div>
+                <div>
+                    <span class="text-[10px] font-bold uppercase tracking-widest text-indigo-400">Game Night</span>
+                    <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-slate-100">Skor Board Game</h1>
+                    <p class="text-xs text-slate-400">Catat skor, pantau ronde, tentukan pemenang.</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 flex-wrap self-end sm:self-center">
+                <button id="cordova-badge" onclick="checkDeviceStatus()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-slate-950 text-slate-400 border border-slate-800/80 transition-all hover:bg-slate-800 shadow-sm cursor-pointer" title="Klik untuk cek status device">
+                    <span id="badge-dot" class="w-2 h-2 rounded-full bg-slate-500"></span>
+                    <span id="badge-text">Browser Mode</span>
+                </button>
+
+                <div class="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800/80 shadow-sm">
+                    <button onclick="switchView('responsive')" id="btn-auto" class="px-2.5 py-1 text-xs font-medium rounded-lg bg-indigo-600 text-white shadow cursor-pointer">📱 Auto</button>
+                    <button onclick="switchView('mobile')" id="btn-hp" class="px-2.5 py-1 text-xs font-medium rounded-lg text-slate-400 hover:text-slate-200 transition-all cursor-pointer">📱 HP</button>
+                    <button onclick="switchView('desktop')" id="btn-pc" class="px-2.5 py-1 text-xs font-medium rounded-lg text-slate-400 hover:text-slate-200 transition-all cursor-pointer">💻 PC</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Panel Timer Permainan -->
+        <section class="timer-section bg-slate-900/80 backdrop-blur-xl border border-slate-800/90 rounded-2xl p-5 shadow-2xl space-y-3">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-indigo-400">Timer Permainan</span>
+                    <div id="timer-display" class="text-4xl font-black text-slate-100 font-mono tracking-tight mt-0.5">00:00</div>
+                    <p id="timer-status" class="text-xs text-slate-400 mt-0.5">Siap dimulai</p>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <button id="btn-timer-toggle" onclick="toggleTimer()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl text-xs font-semibold shadow-lg transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5">
+                        ▶️ Mulai
+                    </button>
+                    <button onclick="pauseTimer()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3.5 py-2.5 rounded-xl text-xs font-semibold border border-slate-700 transition-all active:scale-95 cursor-pointer flex items-center justify-center">
+                        ⏸️ Jeda
+                    </button>
+                    <button onclick="resetTimer()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3.5 py-2.5 rounded-xl text-xs font-semibold border border-slate-700 transition-all active:scale-95 cursor-pointer flex items-center justify-center">
+                        🔄 Reset
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Panel Ronde Saat Ini -->
+        <section class="round-section bg-slate-900/80 backdrop-blur-xl border border-slate-800/90 rounded-2xl p-5 shadow-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+                <span class="text-[11px] font-bold uppercase tracking-wider text-amber-400">Ronde Saat Ini</span>
+                <div class="flex items-baseline gap-2 mt-0.5">
+                    <span id="roundNumber" class="text-3xl font-black text-amber-400">1</span>
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-widest">Ronde</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="prevRound()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3.5 py-2.5 rounded-xl text-xs font-semibold border border-slate-700 transition-all active:scale-95 cursor-pointer flex items-center justify-center">
+                    ← Sebelumnya
+                </button>
+                <button onclick="nextRound()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl text-xs font-semibold shadow-lg transition-all active:scale-95 cursor-pointer flex items-center justify-center">
+                    Berikutnya →
+                </button>
+            </div>
+        </section>
+
+        <!-- Panel Kustomisasi Tombol Skor (Preset) -->
+        <section class="bg-slate-900/80 backdrop-blur-xl border border-slate-800/90 rounded-2xl p-4 shadow-2xl space-y-2">
+            <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-400">⚙️ Atur Tombol Skor Cepat (Preset)</span>
+                <button onclick="saveScorePresets()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded-lg text-xs font-semibold shadow transition-all cursor-pointer">Simpan Preset</button>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                <div>
+                    <label class="text-[10px] text-slate-400 block mb-1">Tombol 1 (Minus Besar)</label>
+                    <input type="number" id="preset-0" class="w-full bg-slate-950 text-slate-200 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-center focus:border-indigo-500 focus:outline-none" value="-5">
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-400 block mb-1">Tombol 2 (Minus Kecil)</label>
+                    <input type="number" id="preset-1" class="w-full bg-slate-950 text-slate-200 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-center focus:border-indigo-500 focus:outline-none" value="-1">
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-400 block mb-1">Tombol 3 (Plus Kecil)</label>
+                    <input type="number" id="preset-2" class="w-full bg-slate-950 text-slate-200 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-center focus:border-indigo-500 focus:outline-none" value="1">
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-400 block mb-1">Tombol 4 (Plus Besar)</label>
+                    <input type="number" id="preset-3" class="w-full bg-slate-950 text-slate-200 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-center focus:border-indigo-500 focus:outline-none" value="5">
+                </div>
+            </div>
+        </section>
+
+        <!-- Bagian Judul Papan Skor & Tombol Aksi -->
+        <div class="score-header flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
+            <div>
+                <h2 class="text-lg font-bold text-slate-100">Papan Skor</h2>
+                <p class="text-xs text-slate-400">Atur skor dan profil pemain.</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="openAddPlayerPrompt()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl text-xs font-semibold shadow-lg transition-all active:scale-95 cursor-pointer flex items-center justify-center">
+                    + Tambah Pemain
+                </button>
+                <button onclick="exportCSV()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3.5 py-2.5 rounded-xl text-xs font-semibold border border-slate-700 transition-all active:scale-95 cursor-pointer flex items-center justify-center">
+                    Ekspor CSV
+                </button>
+            </div>
+        </div>
+
+        <!-- Container Kartu Pemain (Papan Skor) -->
+        <section id="playersContainer" class="grid grid-cols-1 gap-4" aria-label="Daftar pemain" aria-live="polite">
+            <!-- Pemain dirender dinamis oleh JavaScript -->
+        </section>
+
+        <!-- Bagian Bawah: Peringkat Pemain & Riwayat Skor -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2">
+            
+            <!-- Peringkat Pemain (Leaderboard) -->
+            <section class="bg-slate-900/80 backdrop-blur-xl border border-slate-800/90 rounded-2xl p-5 shadow-2xl space-y-4">
+                <div>
+                    <h3 class="text-sm font-bold text-slate-100 flex items-center gap-2">
+                        🏆 Peringkat Pemain
+                    </h3>
+                    <p class="text-xs text-slate-400 mt-0.5">Urutan berdasarkan skor tertinggi.</p>
+                </div>
+                <div id="leaderboardList" class="space-y-2.5">
+                    <!-- Leaderboard dirender dinamis -->
+                </div>
+            </section>
+
+            <!-- Riwayat Skor -->
+            <section class="bg-slate-900/80 backdrop-blur-xl border border-slate-800/90 rounded-2xl p-5 shadow-2xl space-y-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-100 flex items-center gap-2">
+                            ⏱️ Riwayat Skor
+                        </h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Perubahan skor per ronde.</p>
+                    </div>
+                    <button onclick="clearHistory()" class="text-xs text-rose-400 hover:text-rose-300 transition-colors cursor-pointer">
+                        Hapus riwayat
+                    </button>
+                </div>
+
+                <div class="flex items-center justify-between text-xs text-slate-400 bg-slate-950/60 px-3 py-2 rounded-xl border border-slate-800/80">
+                    <span>Filter ronde</span>
+                    <select id="roundFilter" onchange="renderHistory()" class="bg-slate-900 text-slate-200 border border-slate-700 rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer">
+                        <option value="all">Semua ronde</option>
+                    </select>
+                </div>
+
+                <div id="historyList" class="space-y-2 max-h-40 overflow-y-auto pr-1">
+                    <p class="empty text-xs text-slate-500 italic text-center py-4">Tidak ada riwayat pada ronde ini.</p>
+                </div>
+            </section>
+
+        </div>
+
+        <!-- Tombol Aksi Bawah & Footer -->
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
+            <button onclick="finishGame()" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 rounded-xl text-sm font-bold shadow-lg transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-2">
+                ✅ Selesaikan Permainan
+            </button>
+            <button onclick="resetGame()" class="w-full sm:w-auto bg-slate-900 hover:bg-rose-950/40 text-rose-400 hover:text-rose-300 border border-rose-900/50 px-6 py-3 rounded-xl text-sm font-bold transition-all active:scale-95 cursor-pointer">
+                🔄 Reset Permainan
+            </button>
+        </div>
+
+        <footer class="app-footer text-center text-xs text-slate-500 pt-4 pb-2">
+            Skor dan riwayat tersimpan otomatis di perangkat ini.
+        </footer>
+    </main>
+
+    <!-- Cordova Core Script -->
+    <script src="cordova.js"></script>
+
+    <!-- Script Logika Aplikasi -->
+    <script>
+        let currentRound = 1;
+        let viewMode = 'responsive';
+        let isNativeDevice = false;
+        
+        let players = [
+            { id: 1, name: 'Pemain 1', score: 0, roundScores: {}, avatar: '🧑‍🦰', themeId: 'indigo' },
+            { id: 2, name: 'Pemain 2', score: 0, roundScores: {}, avatar: '🦊', themeId: 'rose' }
+        ];
+        let history = [];
+
+        // Preset Nilai Tombol Skor Cepat (Default: -5, -1, 1, 5)
+        let scorePresets = [-5, -1, 1, 5];
+
+        // Daftar Pilihan Avatar & Tema Warna Lengkap
+        const availableAvatars = ['🧑‍🦰', '🦊', '🤖', '🐱', '🚀', '🐼', '🧙‍♂️', '👑', '⭐', '🔥'];
+        
+        const availableThemes = [
+            { 
+                id: 'indigo', 
+                name: 'Indigo', 
+                btnClass: 'border-indigo-500 bg-indigo-950/60 text-indigo-300',
+                cardClass: 'bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950/60 border-indigo-500/60',
+                avatarClass: 'bg-indigo-500/20 border-indigo-500/40',
+                scoreClass: 'text-indigo-400'
+            },
+            { 
+                id: 'rose', 
+                name: 'Rose', 
+                btnClass: 'border-rose-500 bg-rose-950/60 text-rose-300',
+                cardClass: 'bg-gradient-to-br from-slate-900 via-slate-900 to-rose-950/60 border-rose-500/60',
+                avatarClass: 'bg-rose-500/20 border-rose-500/40',
+                scoreClass: 'text-rose-400'
+            },
+            { 
+                id: 'emerald', 
+                name: 'Emerald', 
+                btnClass: 'border-emerald-500 bg-emerald-950/60 text-emerald-300',
+                cardClass: 'bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/60 border-emerald-500/60',
+                avatarClass: 'bg-emerald-500/20 border-emerald-500/40',
+                scoreClass: 'text-emerald-400'
+            },
+            { 
+                id: 'amber', 
+                name: 'Amber', 
+                btnClass: 'border-amber-500 bg-amber-950/60 text-amber-300',
+                cardClass: 'bg-gradient-to-br from-slate-900 via-slate-900 to-amber-950/60 border-amber-500/60',
+                avatarClass: 'bg-amber-500/20 border-amber-500/40',
+                scoreClass: 'text-amber-400'
+            },
+            { 
+                id: 'cyan', 
+                name: 'Cyan', 
+                btnClass: 'border-cyan-500 bg-cyan-950/60 text-cyan-300',
+                cardClass: 'bg-gradient-to-br from-slate-900 via-slate-900 to-cyan-950/60 border-cyan-500/60',
+                avatarClass: 'bg-cyan-500/20 border-cyan-500/40',
+                scoreClass: 'text-cyan-400'
+            },
+            { 
+                id: 'violet', 
+                name: 'Violet', 
+                btnClass: 'border-violet-500 bg-violet-950/60 text-violet-300',
+                cardClass: 'bg-gradient-to-br from-slate-900 via-slate-900 to-violet-950/60 border-violet-500/60',
+                avatarClass: 'bg-violet-500/20 border-violet-500/40',
+                scoreClass: 'text-violet-400'
+            }
+        ];
+
+        // Variabel Timer
+        let totalSeconds = 0;
+        let timerInterval = null;
+        let isTimerRunning = false;
+
+        // --- FITUR LOCAL STORAGE ---
+        const STORAGE_KEY = 'skor_board_game_data';
+
+        function saveData() {
+            const dataToSave = {
+                currentRound,
+                players,
+                history,
+                totalSeconds,
+                scorePresets
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+        }
+
+        function loadData() {
+            const savedData = localStorage.getItem(STORAGE_KEY);
+            if (savedData) {
+                try {
+                    const parsed = JSON.parse(savedData);
+                    currentRound = parsed.currentRound || 1;
+                    players = parsed.players || players;
+                    history = parsed.history || [];
+                    totalSeconds = parsed.totalSeconds || 0;
+                    scorePresets = parsed.scorePresets || [-5, -1, 1, 5];
+                } catch (e) {
+                    console.error("Gagal memuat data dari localStorage", e);
+                }
+            }
+            // Sinkronkan nilai preset ke input HTML
+            for (let i = 0; i < 4; i++) {
+                const inputEl = document.getElementById(`preset-${i}`);
+                if (inputEl) inputEl.value = scorePresets[i];
+            }
+        }
+        // ---------------------------
+
+        function saveScorePresets() {
+            for (let i = 0; i < 4; i++) {
+                const val = parseInt(document.getElementById(`preset-${i}`).value);
+                if (!isNaN(val)) {
+                    scorePresets[i] = val;
+                }
+            }
+            renderPlayers();
+            saveData();
+            alert('✅ Tombol skor cepat berhasil diperbarui!');
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        }
+
+        function updateTimerDisplay() {
+            document.getElementById('timer-display').innerText = formatTime(totalSeconds);
+        }
+
+        function toggleTimer() {
+            const btn = document.getElementById('btn-timer-toggle');
+            const status = document.getElementById('timer-status');
+            if (isTimerRunning) {
+                pauseTimer();
+            } else {
+                isTimerRunning = true;
+                btn.innerHTML = '⏸️ Jeda';
+                status.innerText = 'Sedang berjalan...';
+                timerInterval = setInterval(() => {
+                    totalSeconds++;
+                    updateTimerDisplay();
+                    saveData();
+                }, 1000);
+            }
+        }
+
+        function pauseTimer() {
+            clearInterval(timerInterval);
+            isTimerRunning = false;
+            document.getElementById('btn-timer-toggle').innerHTML = '▶️ Lanjut';
+            document.getElementById('timer-status').innerText = 'Dijeda';
+            saveData();
+        }
+
+        function resetTimer() {
+            clearInterval(timerInterval);
+            isTimerRunning = false;
+            totalSeconds = 0;
+            updateTimerDisplay();
+            document.getElementById('btn-timer-toggle').innerHTML = '▶️ Mulai';
+            document.getElementById('timer-status').innerText = 'Siap dimulai';
+            saveData();
+        }
+
+        function renderAll() {
+            renderPlayers();
+            renderLeaderboard();
+            renderHistoryFilter();
+            renderHistory();
+            document.getElementById('roundNumber').innerText = currentRound;
+            updateTimerDisplay();
+            saveData();
+        }
+
+        function renderPlayers() {
+            const listEl = document.getElementById('playersContainer');
+            listEl.innerHTML = '';
+
+            players.forEach((player) => {
+                const currentRoundScore = player.roundScores[currentRound] || 0;
+                const playerAvatar = player.avatar || '🧑‍🦰';
+                const activeTheme = availableThemes.find(t => t.id === player.themeId) || availableThemes[0];
+
+                const card = document.createElement('div');
+                card.className = `${activeTheme.cardClass} border-2 rounded-2xl p-5 shadow-xl flex flex-col justify-between gap-4 transition-all duration-300`;
+                
+                // Render opsi avatar pilihan
+                let avatarOptionsHtml = availableAvatars.map(av => 
+                    `<button onclick="changePlayerAvatar(${player.id}, '${av}')" class="w-7 h-7 rounded-lg bg-slate-800/80 hover:bg-slate-700 flex items-center justify-center text-sm cursor-pointer transition-transform hover:scale-110 ${playerAvatar === av ? 'ring-2 ring-white bg-slate-700' : ''}">${av}</button>`
+                ).join('');
+
+                // Render opsi warna tema pilihan
+                let themeOptionsHtml = availableThemes.map(th => 
+                    `<button onclick="changePlayerTheme(${player.id}, '${th.id}')" class="px-2.5 py-1 text-[10px] rounded-md border ${th.btnClass} hover:brightness-125 cursor-pointer transition-all ${activeTheme.id === th.id ? 'ring-2 ring-white font-bold scale-105' : 'opacity-75'}">${th.name}</button>`
+                ).join('');
+
+                // Render tombol skor dinamis berdasarkan preset
+                let scoreButtonsHtml = scorePresets.map(val => {
+                    const isPositive = val >= 0;
+                    const hoverColor = isPositive ? 'hover:bg-emerald-950/70 hover:text-emerald-300' : 'hover:bg-rose-950/70 hover:text-rose-300';
+                    const label = isPositive ? '+' + val : val;
+                    return `<button onclick="adjustScore(${player.id}, ${val})" class="bg-slate-800/90 ${hoverColor} border border-slate-700 text-slate-300 py-2.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer">${label}</button>`;
+                }).join('');
+
+                card.innerHTML = `
+                    <div class="flex items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-11 h-11 rounded-xl ${activeTheme.avatarClass} border flex items-center justify-center text-xl shadow-inner shrink-0 transition-colors">
+                                ${playerAvatar}
+                            </div>
+                            <div>
+                                <input type="text" value="${player.name}" maxlength="24" autocomplete="off" onchange="updatePlayerName(${player.id}, this.value)" 
+                                       class="bg-transparent font-bold text-base text-slate-100 border-b border-transparent hover:border-slate-700 focus:border-white focus:outline-none px-1 py-0.5 w-full">
+                                <span class="text-[11px] text-slate-400 pl-1">Pemain aktif</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <button onclick="removePlayer(${player.id})" class="text-slate-400 hover:text-rose-400 p-2 rounded-lg transition-colors cursor-pointer" title="Hapus Pemain">✕</button>
+                        </div>
+                    </div>
+
+                    <!-- Panel Kustomisasi Avatar & Tema -->
+                    <div class="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/60 space-y-2">
+                        <div class="flex items-center justify-between text-[10px] text-slate-400 uppercase font-semibold">
+                            <span>Pilih Avatar:</span>
+                        </div>
+                        <div class="flex flex-wrap gap-1">
+                            ${avatarOptionsHtml}
+                        </div>
+                        <div class="flex items-center justify-between text-[10px] text-slate-400 uppercase font-semibold pt-1">
+                            <span>Warna Tema Kartu:</span>
+                        </div>
+                        <div class="flex flex-wrap gap-1.5">
+                            ${themeOptionsHtml}
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between bg-slate-950/75 px-5 py-4 rounded-xl border border-slate-800/80">
+                        <div>
+                            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Skor</span>
+                            <div class="text-3xl font-black ${activeTheme.scoreClass} mt-0.5 transition-colors">${player.score}</div>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Skor ronde ${currentRound}</span>
+                            <div class="text-xl font-bold text-slate-200 mt-0.5">${currentRoundScore >= 0 ? '+' + currentRoundScore : currentRoundScore}</div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-4 gap-2">
+                        ${scoreButtonsHtml}
+                    </div>
+                `;
+                listEl.appendChild(card);
+            });
+        }
+
+        function changePlayerAvatar(id, newAvatar) {
+            const player = players.find(p => p.id === id);
+            if (player) {
+                player.avatar = newAvatar;
+                renderAll();
+            }
+        }
+
+        function changePlayerTheme(id, newThemeId) {
+            const player = players.find(p => p.id === id);
+            if (player) {
+                player.themeId = newThemeId;
+                renderAll();
+            }
+        }
+
+        function renderLeaderboard() {
+            const lbEl = document.getElementById('leaderboardList');
+            lbEl.innerHTML = '';
+            const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
+
+            sortedPlayers.forEach((player, index) => {
+                const item = document.createElement('div');
+                item.className = 'flex items-center justify-between bg-slate-950/70 px-4 py-3 rounded-xl border border-slate-800/80 text-xs';
+                
+                let rankBadge = `<span class="w-6 h-6 rounded-lg bg-slate-800 text-slate-300 flex items-center justify-center font-bold">${index + 1}</span>`;
+                if (index === 0) rankBadge = `<span class="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center font-bold">🥇</span>`;
+                if (index === 1) rankBadge = `<span class="w-6 h-6 rounded-lg bg-slate-300/20 text-slate-300 border border-slate-300/30 flex items-center justify-center font-bold">🥈</span>`;
+                if (index === 2) rankBadge = `<span class="w-6 h-6 rounded-lg bg-amber-700/20 text-amber-600 border border-amber-700/30 flex items-center justify-center font-bold">🥉</span>`;
+
+                const avatarIcon = player.avatar || '🧑‍🦰';
+
+                item.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        ${rankBadge}
+                        <span class="text-base">${avatarIcon}</span>
+                        <span class="font-bold text-slate-200">${player.name}</span>
+                    </div>
+                    <span class="font-extrabold text-indigo-400 text-sm">${player.score} poin</span>
+                `;
+                lbEl.appendChild(item);
+            });
+        }
+
+        function renderHistoryFilter() {
+            const filterEl = document.getElementById('roundFilter');
+            const currentValue = filterEl.value;
+            filterEl.innerHTML = '<option value="all">Semua ronde</option>';
+            for (let r = 1; r <= currentRound; r++) {
+                const opt = document.createElement('option');
+                opt.value = r;
+                opt.innerText = `Ronde ${r}`;
+                filterEl.appendChild(opt);
+            }
+            filterEl.value = currentValue;
+        }
+
+        function renderHistory() {
+            const historyEl = document.getElementById('historyList');
+            const filterVal = document.getElementById('roundFilter').value;
+
+            let filteredHistory = history;
+            if (filterVal !== 'all') {
+                filteredHistory = history.filter(h => h.roundNumber == filterVal);
+            }
+
+            if (filteredHistory.length === 0) {
+                historyEl.innerHTML = '<p class="empty text-xs text-slate-500 italic text-center py-4">Tidak ada riwayat pada ronde ini.</p>';
+                return;
+            }
+
+            historyEl.innerHTML = '';
+            filteredHistory.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'bg-slate-950/80 border border-slate-800/80 rounded-xl p-3 text-xs flex flex-col gap-1';
+                div.innerHTML = `
+                    <div class="font-bold text-amber-400 flex justify-between">
+                        <span>Ronde ${item.roundNumber} - ${item.playerName}</span>
+                        <span class="text-slate-500 text-[10px]">${item.timestamp}</span>
+                    </div>
+                    <div class="text-slate-300">Mengubah skor sebesar <strong class="text-indigo-300">${item.amount >= 0 ? '+' + item.amount : item.amount}</strong> (Total: ${item.newScore})</div>
+                `;
+                historyEl.appendChild(div);
+            });
+        }
+
+        function adjustScore(id, amount) {
+            const player = players.find(p => p.id === id);
+            if (player) {
+                player.score += amount;
+                if (!player.roundScores[currentRound]) player.roundScores[currentRound] = 0;
+                player.roundScores[currentRound] += amount;
+
+                history.unshift({
+                    roundNumber: currentRound,
+                    playerName: player.name,
+                    amount: amount,
+                    newScore: player.score,
+                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                });
+
+                if (navigator.vibrate) navigator.vibrate(30);
+                renderAll();
+            }
+        }
+
+        function updatePlayerName(id, newName) {
+            const player = players.find(p => p.id === id);
+            if (player && newName.trim() !== '') {
+                player.name = newName.trim();
+                renderAll();
+            }
+        }
+
+        function openAddPlayerPrompt() {
+            const name = prompt('Masukkan nama pemain baru:');
+            if (name && name.trim() !== '') {
+                const randomAvatar = availableAvatars[Math.floor(Math.random() * availableAvatars.length)];
+                const randomTheme = availableThemes[Math.floor(Math.random() * availableThemes.length)].id;
+
+                players.push({
+                    id: Date.now(),
+                    name: name.trim(),
+                    score: 0,
+                    roundScores: {},
+                    avatar: randomAvatar,
+                    themeId: randomTheme
+                });
+                if (navigator.vibrate) navigator.vibrate(30);
+                renderAll();
+            }
+        }
+
+        function removePlayer(id) {
+            if (players.length <= 1) {
+                alert('Minimal harus ada 1 pemain dalam permainan!');
+                return;
+            }
+            players = players.filter(p => p.id !== id);
+            if (navigator.vibrate) navigator.vibrate(30);
+            renderAll();
+        }
+
+        function nextRound() {
+            currentRound++;
+            if (navigator.vibrate) navigator.vibrate(30);
+            renderAll();
+        }
+
+        function prevRound() {
+            if (currentRound > 1) {
+                currentRound--;
+                if (navigator.vibrate) navigator.vibrate(30);
+                renderAll();
+            }
+        }
+
+        function finishGame() {
+            const sorted = [...players].sort((a, b) => b.score - a.score);
+            alert(`🎉 Permainan Selesai!\n\nPemenang:\n🥇 ${sorted[0].avatar} ${sorted[0].name} (${sorted[0].score} poin)`);
+        }
+
+        function resetGame() {
+            if (confirm('Yakin ingin mereset seluruh skor dan permainan?')) {
+                localStorage.removeItem(STORAGE_KEY);
+                players = [
+                    { id: 1, name: 'Pemain 1', score: 0, roundScores: {}, avatar: '🧑‍🦰', themeId: 'indigo' },
+                    { id: 2, name: 'Pemain 2', score: 0, roundScores: {}, avatar: '🦊', themeId: 'rose' }
+                ];
+                scorePresets = [-5, -1, 1, 5];
+                history = [];
+                currentRound = 1;
+                resetTimer();
+                if (navigator.vibrate) navigator.vibrate(30);
+                loadData();
+                renderAll();
+            }
+        }
+
+        function clearHistory() {
+            if (confirm('Hapus seluruh riwayat skor?')) {
+                history = [];
+                renderHistory();
+                saveData();
+            }
+        }
+
+        function exportCSV() {
+            let csvContent = "data:text/csv;charset=utf-8,Nama Pemain,Total Skor\n";
+            players.forEach(p => {
+                csvContent += `${p.name},${p.score}\n`;
+            });
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "skor_board_game.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function switchView(mode) {
+            viewMode = mode;
+            const main = document.getElementById('main-container');
+            const playersList = document.getElementById('playersContainer');
+            
+            document.getElementById('btn-auto').className = 'px-2.5 py-1 text-xs font-medium rounded-lg text-slate-400 hover:text-slate-200 transition-all cursor-pointer';
+            document.getElementById('btn-hp').className = 'px-2.5 py-1 text-xs font-medium rounded-lg text-slate-400 hover:text-slate-200 transition-all cursor-pointer';
+            document.getElementById('btn-pc').className = 'px-2.5 py-1 text-xs font-medium rounded-lg text-slate-400 hover:text-slate-200 transition-all cursor-pointer';
+
+            main.classList.remove('mobile-mode');
+            playersList.classList.remove('desktop-grid');
+
+            if (mode === 'responsive') {
+                document.getElementById('btn-auto').className = 'px-2.5 py-1 text-xs font-medium rounded-lg bg-indigo-600 text-white shadow cursor-pointer';
+            } else if (mode === 'mobile') {
+                document.getElementById('btn-hp').className = 'px-2.5 py-1 text-xs font-medium rounded-lg bg-indigo-600 text-white shadow cursor-pointer';
+                main.classList.add('mobile-mode');
+            } else if (mode === 'desktop') {
+                document.getElementById('btn-pc').className = 'px-2.5 py-1 text-xs font-medium rounded-lg bg-indigo-600 text-white shadow cursor-pointer';
+                playersList.classList.add('desktop-grid');
+            }
+        }
+
+        function checkDeviceStatus() {
+            if (isNativeDevice) {
+                alert('Status: Berjalan di perangkat Native (Cordova Android/iOS)');
+            } else {
+                alert('Status: Berjalan di Browser Biasa (Web Mode)');
+            }
+        }
+
+        document.addEventListener('deviceready', () => {
+            isNativeDevice = true;
+            const badge = document.getElementById('cordova-badge');
+            const dot = document.getElementById('badge-dot');
+            const text = document.getElementById('badge-text');
+
+            badge.className = "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-950/80 text-emerald-300 border border-emerald-800/80 transition-all hover:bg-emerald-900 shadow-sm cursor-pointer";
+            dot.className = "w-2 h-2 rounded-full bg-emerald-400 animate-pulse";
+            text.innerText = "Cordova Native";
+
+            document.addEventListener('backbutton', () => {
+                if (confirm('Keluar dari aplikasi?')) {
+                    navigator.app.exitApp();
+                }
+            }, false);
+        }, false);
+
+        window.onload = () => {
+            loadData();
+            renderAll();
+        };
+    </script>
+</body>
+</html>
+```[cite: 1, 3]
